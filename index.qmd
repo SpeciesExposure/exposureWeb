@@ -1,5 +1,5 @@
 ---
-title: "Species Climate Exposure Dashboard"
+title: "Species Exposure Dashboard"
 format:
   dashboard:
     nav-buttons:
@@ -40,6 +40,21 @@ format:
 .bslib-card .card-body .leaflet-container {
   width: 100% !important;
   height: 100% !important;
+}
+
+/* ---- Hotspot Explorer: allow map row to reach its explicit 700px height ----
+   The bslib fill chain makes every element flex-grow:1 into the viewport
+   height.  Override only in the hotspot tab by setting flex-grow:0 so the
+   chain auto-sizes from content instead, then force the inner grid rows. */
+#hotspot-explorer .bslib-sidebar-layout,
+#hotspot-explorer .main,
+#hotspot-explorer .main > .bslib-grid {
+  flex: 0 0 auto !important;
+  height: auto !important;
+}
+.bslib-grid[data-height="700px"] {
+  grid-template-rows: 700px 320px !important;
+  height: auto !important;
 }
 </style>
 ```
@@ -152,6 +167,148 @@ species_display <- species_metadata |>
     `IUCN status` = dplyr::any_of("redlistCategory")
   )
 ojs_define(species_meta_data = species_display)
+
+# About the number of species and years for the home page
+n_species_total <- nrow(species_metadata)
+n_years_total   <- length(years_avail)
+year_min        <- min(years_avail)
+year_max        <- max(years_avail)
+```
+
+# Home {scrolling="true"}
+
+## Row
+
+### Col {width="65%"}
+
+```{=html}
+<div style="max-width:680px; padding: 1.5rem 0.5rem;">
+
+<h2 style="margin-top:0.2rem;">Species Exposure Dashboard</h2>
+
+<p style="font-size:1.05rem; line-height:1.6;">
+This dashboard tracks how much of each species' geographic range has been
+exposed to <strong>extreme climate events</strong> — temperatures and
+precipitation outside the historical baseline — using ERA5 reanalysis data
+from 1940 to the present.
+</p>
+
+<hr style="margin: 1.2rem 0;">
+
+<h4>What you can explore</h4>
+<ul style="line-height:1.8;">
+  <li>
+    <strong>Species Explorer</strong> — select any species to view its
+    historical exposure time series, a polar summary of which climate
+    variables have affected it most, and a map of its geographic range.
+  </li>
+  <li>
+    <strong>Hotspot Explorer</strong> — click any grid cell on the global
+    map to see all species present there and how many are currently
+    exposed to extreme conditions.
+  </li>
+</ul>
+
+<hr style="margin: 1.2rem 0;">
+
+<h4>Climate variables tracked</h4>
+<p>Eight ERA5-derived extremes, covering both tails of temperature and
+precipitation at annual and seasonal timescales:</p>
+<ul style="line-height:1.8; columns:2; column-gap:2rem;">
+  <li>High temperature (annual)</li>
+  <li>Low temperature (annual)</li>
+  <li>High temperature (warmest 3 months)</li>
+  <li>Low temperature (coldest 3 months)</li>
+  <li>High precipitation (annual)</li>
+  <li>Low precipitation (annual)</li>
+  <li>High precipitation (wettest 3 months)</li>
+  <li>Low precipitation (driest 3 months)</li>
+</ul>
+
+<hr style="margin: 1.2rem 0;">
+
+<h4>Data sources</h4>
+<ul style="line-height:1.8;">
+  <li><a href="https://www.ecmwf.int/en/forecasts/dataset/ecmwf-reanalysis-v5" target="_blank">ERA5 reanalysis</a> (ECMWF) — climate variables on a 0.25° global grid</li>
+  <li><a href="https://www.iucnredlist.org/" target="_blank">IUCN Red List</a> — species range polygons and conservation status</li>
+</ul>
+
+<p style="margin-top:1.5rem; font-size:0.85rem; color:#777;">
+  Source code:
+  <a href="https://github.com/cmerow/2025_Exposure" target="_blank">github.com/cmerow/2025_Exposure</a>
+</p>
+
+</div>
+```
+
+### Col {width="35%"}
+
+```{r home-stats, echo=FALSE}
+#| padding: 0
+htmltools::tagList(
+  htmltools::tags$div(
+    style = paste0(
+      "display:flex; flex-direction:column; gap:1rem; ",
+      "padding:1rem 0.5rem; max-width:280px;"
+    ),
+    htmltools::tags$div(
+      style = paste0(
+        "background:#f8f9fa; border-left:4px solid #2c7bb6; ",
+        "border-radius:4px; padding:1rem 1.2rem;"
+      ),
+      htmltools::tags$div(
+        style = "font-size:2rem; font-weight:700; color:#2c7bb6; line-height:1.1;",
+        format(n_species_total, big.mark = ",")
+      ),
+      htmltools::tags$div(
+        style = "font-size:0.85rem; color:#555; margin-top:0.2rem;",
+        "species with range maps"
+      )
+    ),
+    htmltools::tags$div(
+      style = paste0(
+        "background:#f8f9fa; border-left:4px solid #1a9850; ",
+        "border-radius:4px; padding:1rem 1.2rem;"
+      ),
+      htmltools::tags$div(
+        style = "font-size:2rem; font-weight:700; color:#1a9850; line-height:1.1;",
+        n_years_total
+      ),
+      htmltools::tags$div(
+        style = "font-size:0.85rem; color:#555; margin-top:0.2rem;",
+        paste0("years of ERA5 data (", year_min, "\u2013", year_max, ")")
+      )
+    ),
+    htmltools::tags$div(
+      style = paste0(
+        "background:#f8f9fa; border-left:4px solid #d73027; ",
+        "border-radius:4px; padding:1rem 1.2rem;"
+      ),
+      htmltools::tags$div(
+        style = "font-size:2rem; font-weight:700; color:#d73027; line-height:1.1;",
+        "8"
+      ),
+      htmltools::tags$div(
+        style = "font-size:0.85rem; color:#555; margin-top:0.2rem;",
+        "climate extreme variables"
+      )
+    ),
+    htmltools::tags$div(
+      style = paste0(
+        "background:#f8f9fa; border-left:4px solid #756bb1; ",
+        "border-radius:4px; padding:1rem 1.2rem;"
+      ),
+      htmltools::tags$div(
+        style = "font-size:2rem; font-weight:700; color:#756bb1; line-height:1.1;",
+        "0.25°"
+      ),
+      htmltools::tags$div(
+        style = "font-size:0.85rem; color:#555; margin-top:0.2rem;",
+        "spatial resolution (~28 km)"
+      )
+    )
+  )
+)
 ```
 
 # Species Explorer {.tabset}
@@ -259,7 +416,10 @@ species_range_map = {
   // Yield first so the wrapper is in the DOM before Leaflet initialises
   yield outer;
 
-  const L = await require("https://unpkg.com/leaflet@1.9.4/dist/leaflet.js");
+  // Use the Leaflet already loaded by the R leaflet package (site_libs/leaflet-1.3.1).
+  // Loading a separate CDN copy would overwrite window.L and break the Hotspot
+  // Explorer's addProviderTiles call.
+  const L = window.L;
 
   const sp = encodeURIComponent(selected_species);
   let mapData;
@@ -338,7 +498,7 @@ ojs_define(has_species_figs = file.exists("data/species_figs"))
 }
 ```
 
-# Hotspot Explorer {scrolling="false"}
+# Hotspot Explorer {scrolling="true"}
 
 ## {.sidebar}
 
@@ -370,12 +530,11 @@ viewof hotspot_threatened_only = Inputs.toggle({
 })
 ```
 
-## {.fill}
+## Row {height="700px"}
 
-### Map {.fill}
+### Map
 
 ```{r hotspot-map, echo=FALSE}
-#| fill: true
 # Build an interactive Leaflet map showing the hotspot raster.
 # All years are pre-rendered as stacked image layers; JS toggles visibility.
 
@@ -399,7 +558,7 @@ legend_breaks <- c(1, 2, 5, 10, 20, 50, 100, max(global_vals))
 legend_breaks <- legend_breaks[legend_breaks <= max(global_vals)]
 
 # Start map
-lmap <- leaflet::leaflet(height = "100%", options = leaflet::leafletOptions(preferCanvas = TRUE)) |>
+lmap <- leaflet::leaflet(height = "700px", options = leaflet::leafletOptions(preferCanvas = TRUE)) |>
   leaflet::addProviderTiles(leaflet::providers$CartoDB.DarkMatter) |>
   leaflet::setView(lng = 0, lat = 15, zoom = 2)
 
@@ -441,7 +600,7 @@ lmap <- lmap |>
       window.addEventListener('hotspot_year_change', function(e) {
         var yr = String(e.detail.year);
         hotspotYears.forEach(function(y) {
-          var layer = map.layerManager.getLayer('hotspot_' + y, 'image');
+          var layer = map.layerManager.getLayer('image', 'hotspot_' + y);
           if (layer) layer.setOpacity(String(y) === yr ? 1 : 0);
         });
       });
@@ -457,7 +616,7 @@ lmap <- lmap |>
       });
     }
   "))
-bslib::as_fill_item(lmap)
+lmap
 ```
 
 ```{r raster-geometry, include=FALSE}
