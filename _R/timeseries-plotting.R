@@ -273,13 +273,14 @@ plot_cumulative_exposure <- function(exposure_summary, species_trend = NULL, spe
       font = list(size = 14, family = "sans-serif")
     ),
     xaxis  = list(title = "Year"),
-    yaxis  = list(title = "Cumulative % of range exposed", side = "left", ticksuffix = "%"),
+    yaxis  = list(title = "Cumulative % of range exposed", side = "left", ticksuffix = "%", range = list(0, 100)),
     yaxis2 = list(
       title      = "% range exposed",
       side       = "right",
       overlaying = "y",
       showgrid   = FALSE,
-      ticksuffix = "%"
+      ticksuffix = "%",
+      range      = list(0, 100)
     ),
     legend    = list(orientation = "h", y = -0.25),
     hovermode = "x unified"
@@ -510,13 +511,12 @@ build_polar_figure <- function(polar_data, sp_name, year_range) {
 
   n_s         <- nrow(polar_df)
   p_start     <- -(2.5 - 0.5) / n_s * 2 * pi
-  ref_pcts    <- c(0.1, 1, 10, 50)
-  max_display <- 20
-  to_r        <- function(pct) log1p(pct * 10) / log1p(100 * 10) * max_display
-  inner_r     <- to_r(0.2)
+  ref_pcts    <- c(25, 50, 75, 100)
+  max_display <- 100
+  inner_r     <- 25
   label_r     <- max_display * 1.05
 
-  polar_df <- polar_df |> dplyr::mutate(r_pos = to_r(pct_range))
+  polar_df <- polar_df |> dplyr::mutate(r_pos = pct_range)
 
   grp_labels <- tibble::tibble(
     x     = c(2.5, 7.5),
@@ -531,14 +531,14 @@ build_polar_figure <- function(polar_data, sp_name, year_range) {
     ggplot2::annotate("rect", xmin = 5.5, xmax = 9.5, ymin = 0, ymax = max_display,
                       fill = "#4575b4", colour = NA, alpha = 0.10) +
     ggplot2::annotate("rect", xmin = 0.5, xmax = n_s + 0.5, ymin = 0, ymax = inner_r,
-                      fill = "#2a9d4e", colour = NA, alpha = 0.85) +
-    ggplot2::geom_hline(yintercept = to_r(ref_pcts),
+                      fill = "#2a9d4e", colour = NA, alpha = 0.20) +
+    ggplot2::geom_hline(yintercept = ref_pcts,
                         colour = "grey80", linewidth = 0.35, linetype = "dotted") +
     ggplot2::geom_text(
-      data = tibble::tibble(x = rep(5.0, length(ref_pcts)), y = to_r(ref_pcts),
+      data = tibble::tibble(x = rep(5.0, length(ref_pcts)), y = ref_pcts,
                             label = paste0(ref_pcts, "%")),
       ggplot2::aes(x = x, y = y, label = label),
-      inherit.aes = FALSE, size = 2.5, colour = "grey55", hjust = 0.5
+      inherit.aes = FALSE, size = 5, colour = "grey55", hjust = 0.5
     ) +
     ggplot2::geom_segment(
       data = tibble::tibble(xb = c(0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5)),
@@ -550,17 +550,17 @@ build_polar_figure <- function(polar_data, sp_name, year_range) {
     ggplot2::geom_text(
       data = dplyr::filter(polar_df, pct_range > 0),
       ggplot2::aes(label = sprintf("%.1f%%", pct_range), y = r_pos + max_display * 0.04),
-      size = 2.5, colour = "grey20"
+      size = 5, colour = "grey20"
     ) +
     ggplot2::geom_text(
       data = dplyr::filter(polar_df, !is.na(group)),
       ggplot2::aes(label = short_label, y = label_r),
-      size = 2.5, lineheight = 0.85, colour = "grey30"
+      size = 5, lineheight = 0.85, colour = "grey30"
     ) +
     ggplot2::geom_text(
       data = grp_labels,
       ggplot2::aes(x = x, y = y, label = label, colour = col),
-      inherit.aes = FALSE, fontface = "bold", size = 3.5
+      inherit.aes = FALSE, fontface = "bold", size = 5
     ) +
     ggplot2::coord_polar(start = p_start) +
     ggplot2::scale_fill_identity(na.value = NA) +
@@ -568,9 +568,9 @@ build_polar_figure <- function(polar_data, sp_name, year_range) {
     ggplot2::scale_x_continuous(limits = c(0.5, n_s + 0.5), breaks = NULL) +
     ggplot2::scale_y_continuous(limits = c(0, label_r * 1.22), expand = c(0, 0)) +
     ggplot2::labs(
-      title    = sprintf("%s \u2014 cumulative %% of range exposed (%d\u2013%d)",
-                         gsub("_", " ", sp_name), year_range[1], year_range[2]),
-      subtitle = "Radius is log-transformed"
+      title    = sprintf("%s \u2014 %% of range exposed by variable in %d",
+                         gsub("_", " ", sp_name), year_range[2]),
+      subtitle = "Linear radius 0\u2013100%; green zone = < 25%"
     ) +
     ggplot2::theme_void(base_size = 10) +
     ggplot2::theme(

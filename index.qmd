@@ -142,6 +142,16 @@ default_species <- species_avail[1]
 
 # Named vector for the variable checkbox: label → code
 var_choices <- setNames(vars_avail, vapply(vars_avail, var_label, character(1)))
+
+# Species metadata passed to OJS for the dynamic species header
+species_display <- species_metadata |>
+  dplyr::rename(
+    Species       = spName,
+    Order         = dplyr::any_of("orderName"),
+    Family        = dplyr::any_of("familyName"),
+    `IUCN status` = dplyr::any_of("redlistCategory")
+  )
+ojs_define(species_meta_data = species_display)
 ```
 
 # Species Explorer {.tabset}
@@ -195,38 +205,61 @@ viewof selected_vars = Inputs.checkbox(
 
 ## Species
 
-### Row {height="28%"}
-
-#### Species info {width="45%"}
-
-```{r species-meta-table, echo=FALSE}
-species_display <- species_metadata |>
-  dplyr::rename(
-    Species       = spName,
-    Order         = dplyr::any_of("orderName"),
-    Family        = dplyr::any_of("familyName"),
-    `IUCN status` = dplyr::any_of("redlistCategory")
-  )
-ojs_define(species_meta_data = species_display)
-```
+### Row {height="70px"}
 
 ```{ojs}
 //| echo: false
-filtered_meta = transpose(species_meta_data).filter(row => row.Species === selected_species)
-Inputs.table(filtered_meta, { width: "100%" })
+{
+  const meta = transpose(species_meta_data).filter(row => row.Species === selected_species)[0];
+  if (!meta) return html`<div></div>`;
+  const sp = (meta.Species || "").replace(/_/g, " ");
+  return html`<div style="padding:6px 16px;display:flex;align-items:center;gap:24px;">
+    <h4 style="margin:0;font-style:italic;">${sp}</h4>
+    <span style="color:#555;">Order: <strong>${meta.Order ?? "\u2014"}</strong></span>
+    <span style="color:#555;">Family: <strong>${meta.Family ?? "\u2014"}</strong></span>
+    <span style="color:#555;">IUCN: <strong>${meta["IUCN status"] ?? "\u2014"}</strong></span>
+  </div>`;
+}
 ```
 
-#### Range map {width="55%"}
+### Row {height="35%"}
+
+#### Polar {width="40%"}
+
+```{ojs}
+//| echo: false
+{
+  const sp  = encodeURIComponent(selected_species);
+  const img = DOM.element("img");
+  img.src = `data/species_figs/${sp}_polar.png`;
+  img.style.cssText = "max-width:100%;max-height:100%;object-fit:contain;";
+  img.onerror = () => {
+    const msg = DOM.element("p");
+    msg.textContent = "Polar figure not yet built \u2014 run the build step.";
+    msg.style.cssText = "color:#999;font-size:12px;text-align:center;margin-top:2em;";
+    img.replaceWith(msg);
+  };
+  return img;
+}
+```
+
+#### Range map {width="60%"}
 
 ```{ojs}
 //| echo: false
 species_range_map = {
-  const L = await require("https://unpkg.com/leaflet@1.9.4/dist/leaflet.js");
-
+  // Outer wrapper holds the fixed pixel height so that the CSS rule
+  // ".leaflet-container { height: 100% }" resolves to 280px, not 0
+  // (the OJS .observablehq parent has no explicit height).
+  const outer = DOM.element("div");
+  outer.style.cssText = "width:100%;height:280px;";
   const container = DOM.element("div");
-  // Fixed pixel height required: L.map() measures the container at init time,
-  // before OJS inserts it into the DOM, so height:100% would resolve to 0.
-  container.style.cssText = "width:100%;height:280px;";
+  container.style.cssText = "width:100%;height:100%;";
+  outer.appendChild(container);
+  // Yield first so the wrapper is in the DOM before Leaflet initialises
+  yield outer;
+
+  const L = await require("https://unpkg.com/leaflet@1.9.4/dist/leaflet.js");
 
   const sp = encodeURIComponent(selected_species);
   let mapData;
@@ -238,7 +271,8 @@ species_range_map = {
     const msg = DOM.element("p");
     msg.textContent = "Range map not yet built \u2014 run the build step.";
     msg.style.cssText = "color:#999;font-size:12px;text-align:center;margin-top:2em;";
-    return msg;
+    container.appendChild(msg);
+    return;
   }
 
   const map = L.map(container, { preferCanvas: true });
@@ -246,8 +280,6 @@ species_range_map = {
     attribution: "\u00a9 OpenStreetMap, \u00a9 CARTO",
     maxZoom: 19
   }).addTo(map);
-  // Re-measure after OJS inserts the container into the DOM
-  setTimeout(() => map.invalidateSize(), 100);
 
   const renderer = L.canvas({ padding: 0.5 });
   const bounds = [];
@@ -280,15 +312,12 @@ species_range_map = {
     map.fitBounds(L.latLngBounds(bounds), { padding: [10, 10] });
 
   invalidation.then(() => map.remove());
-  return container;
 }
 ```
 
-### Row {height="35%"}
+### Row {height="55%"}
 
 ```{r species-figures-data, echo=FALSE}
-# Species figures are served as static PNG files under data/species_figs/.
-# OJS fetches them lazily by constructing the URL from the selected species name.
 ojs_define(has_species_figs = file.exists("data/species_figs"))
 ```
 
@@ -296,59 +325,17 @@ ojs_define(has_species_figs = file.exists("data/species_figs"))
 //| echo: false
 {
   const sp  = encodeURIComponent(selected_species);
-  const base = `data/species_figs/${sp}`;
-  const wrap = DOM.element("div");
-  wrap.style.cssText = "display:flex;width:100%;height:100%;gap:8px;overflow:hidden;";
-
-  const makeImg = (src, title) => {
-    const box = DOM.element("div");
-    box.style.cssText = "flex:1;display:flex;flex-direction:column;align-items:center;min-width:0;";
-    const img = DOM.element("img");
-    img.src = src;
-    img.style.cssText = "max-width:100%;max-height:100%;object-fit:contain;";
-    img.onerror = () => {
-      const msg = DOM.element("p");
-      msg.textContent = title + " not yet built \u2014 run the build step.";
-      msg.style.cssText = "color:#999;font-size:12px;text-align:center;margin-top:2em;";
-      box.replaceChildren(msg);
-    };
-    box.appendChild(img);
-    return box;
+  const img = DOM.element("img");
+  img.src = `data/species_figs/${sp}_kde.png`;
+  img.style.cssText = "max-width:100%;max-height:100%;object-fit:contain;";
+  img.onerror = () => {
+    const msg = DOM.element("p");
+    msg.textContent = "KDE figure not yet built \u2014 run the build step.";
+    msg.style.cssText = "color:#999;font-size:12px;text-align:center;margin-top:2em;";
+    img.replaceWith(msg);
   };
-
-  wrap.appendChild(makeImg(`${base}_kde.png`,   "KDE figure"));
-  wrap.appendChild(makeImg(`${base}_polar.png`, "Polar figure"));
-  return wrap;
+  return img;
 }
-```
-
-### Row {height="20%"}
-
-```{r exposure-table-all, echo=FALSE}
-all_summaries <- purrr::imap_dfr(ts_cache, function(sp_data, sp_name) {
-  sp_data$summary |>
-    dplyr::filter(n_cells_exposed > 0) |>
-    dplyr::mutate(
-      species           = sp_name,
-      mean_prop_exposed = round(mean_prop_exposed, 4)
-    )
-})
-ojs_define(all_summaries_data = all_summaries)
-```
-
-```{ojs}
-//| echo: false
-filtered_summary = transpose(all_summaries_data).filter(d => d.species === selected_species)
-
-Inputs.table(
-  filtered_summary.map(({ year, period, n_cells_exposed, mean_prop_exposed }) => ({
-    Year: String(year),
-    Period: period,
-    "Cells exposed": String(n_cells_exposed),
-    "Mean % range exposed": (mean_prop_exposed * 100).toFixed(2) + "%"
-  })),
-  { width: "100%", sort: "Year", reverse: true }
-)
 ```
 
 # Hotspot Explorer {scrolling="false"}

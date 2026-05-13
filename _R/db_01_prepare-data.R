@@ -403,7 +403,7 @@ for (sp_name in names(timeseries_cache)) {
         sp_name    = sp_name,
         year_range = polar_year_range
       )
-      ggplot2::ggsave(out_path, plot = p, width = 5, height = 5, dpi = 120)
+      ggplot2::ggsave(out_path, plot = p, width = 8, height = 8, dpi = 240)
       n_polar_written <- n_polar_written + 1L
     }, error = function(e) {
       warning(sprintf("[prepare-data] Polar figure failed for %s: %s", sp_name, e$message))

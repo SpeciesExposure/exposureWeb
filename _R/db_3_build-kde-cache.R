@@ -188,11 +188,11 @@ build_kde_figure <- function(sp_name, allcell_sp, ts_data) {
                  aes(x = year, xend = year_end, y = temp_c, yend = temp_end),
                  inherit.aes = FALSE, colour = "#313695", alpha = 0.6, linewidth = 0.4) +
     geom_hline(yintercept = hist_tmax, linetype = "dashed", colour = "black", linewidth = 0.6) +
-    annotate("text", x = -Inf, y = hist_tmax, label = "99% Thermal Max",
+    annotate("text", x = -Inf, y = hist_tmax, label = "99% Thermal Max during 1941-2022",
              hjust = -0.05, vjust = -0.4, size = 2.8, colour = "grey20") +
     geom_hline(yintercept = hist_tmed, linetype = "dashed", colour = "black", linewidth = 0.6) +
     geom_hline(yintercept = hist_tmin, linetype = "dashed", colour = "black", linewidth = 0.6) +
-    annotate("text", x = -Inf, y = hist_tmin, label = "1% Thermal Min",
+    annotate("text", x = -Inf, y = hist_tmin, label = "1% Thermal Min during 1941-2022",
              hjust = -0.05, vjust = 1.4, size = 2.8, colour = "grey20") +
     scale_fill_gradientn(
       name    = "Historical CDF (1940-2022)",
@@ -225,6 +225,9 @@ build_kde_figure <- function(sp_name, allcell_sp, ts_data) {
   hist_vals    <- temp_long$temp_c[temp_long$year <= PERIOD_BOUNDARY]
   yr_last      <- max(temp_long$year)
   last_vals    <- temp_long$temp_c[temp_long$year == yr_last]
+
+  # Need ≥ 2 distinct points to estimate KDE bandwidth automatically
+  if (length(hist_vals) < 2 || length(last_vals) < 2) return(NULL)
 
   # No from/to clamping — kernel tapers naturally; normalise each curve to max=1
   dens_hist_fn <- density(hist_vals, adjust = DENS_ADJUST, n = N_GRID)
@@ -370,7 +373,8 @@ build_kde_figure <- function(sp_name, allcell_sp, ts_data) {
     scale_y_continuous(
       name   = "% range exposed",
       labels = function(x) paste0(x, "%"),
-      expand = expansion(mult = c(0, 0.08))
+      limits = c(0, 100),
+      expand = c(0, 0)
     ) +
     labs(x = NULL,
          caption = "Grey area = cumulative unique cells ever exposed; bars = annual per-variable exposure") +
@@ -424,7 +428,7 @@ for (sp_name in all_species) {
         ts_data    = ts_cache[[sp_name]]
       )
       if (!is.null(fig)) {
-        ggplot2::ggsave(out_path, plot = fig, width = 8, height = 8, dpi = 120)
+        ggplot2::ggsave(out_path, plot = fig, width = 12, height = 8, dpi = 240)
         n_rendered <- n_rendered + 1L
       }
     }, error = function(e) {
