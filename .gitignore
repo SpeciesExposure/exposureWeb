@@ -1,0 +1,11 @@
+/.quarto/
+**/*.quarto_ipynb
+_freeze/*
+docs/
+
+# Generated data caches
+data/
+
+# Render output
+_site/
+.DS*

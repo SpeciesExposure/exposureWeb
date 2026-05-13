@@ -1,0 +1,25 @@
+project:
+  type: website
+  output-dir: _site
+  resources:
+    - data/cell_species/
+    - data/species_figs/
+    - data/species_maps/
+
+# Dashboard appearance and layout
+format:
+  dashboard:
+    theme: cosmo      # clean, readable Bootstrap theme
+    orientation: rows # cards stack vertically within each tab
+    scrolling: true   # allow long content to scroll rather than compress
+    expandable: false # disable full-screen card expansion on click
+    include-in-header:
+      text: |
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+# Freeze rendered outputs: Quarto will not re-execute R chunks unless the
+# source code or input data changes.  This is important for the static build:
+# the species timeseries plots are pre-rendered at build time and served
+# as static HTML without any server.
+execute:
+  freeze: false
