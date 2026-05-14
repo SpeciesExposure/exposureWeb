@@ -246,7 +246,7 @@ precipitation at annual and seasonal timescales:</p>
   <a href="https://github.com/SpeciesExposure/exposureApp" target="_blank">github.com/SpeciesExposure/exposureApp</a>.
   Install directly from the repository in R:
 </p>
-<img src="img/shinyApp.png" alt="Screenshot of the Shiny app showing a species timeseries and map" style="max-width:20%; border:1px solid #ddd; border-radius:4px; margin:1rem 0;">
+<img src="img/shinyApp.png" alt="Screenshot of the Shiny app showing a species timeseries and map" style="max-width:50%; border:1px solid #ddd; border-radius:4px; margin:1rem 0;">
 <pre style="background:#f4f4f4; border-left:4px solid #2c7bb6; border-radius:4px;
             padding:0.8rem 1rem; font-size:0.85rem; overflow-x:auto;"><code>install.packages(
   "https://github.com/SpeciesExposure/exposureApp/archive/refs/heads/main.tar.gz",
@@ -478,18 +478,17 @@ species_range_map = {
     const row = Math.floor((c - 1) / rast_ncols) + 1;
     const lon = rast_xmin + (col - 0.5) * rast_xres;
     const lat = rast_ymax - (row - 0.5) * rast_yres;
-    L.circleMarker([lat, lon], {
-      radius: 4,
-      fillColor: varColor(v),
-      color: "none",
-      fillOpacity: 0.75,
-      renderer
-    }).addTo(map);
+    const half_x = rast_xres / 2;
+    const half_y = rast_yres / 2;
+    L.rectangle(
+      [[lat - half_y, lon - half_x], [lat + half_y, lon + half_x]],
+      { fillColor: varColor(v), color: "none", weight: 0, fillOpacity: 0.75, renderer }
+    ).addTo(map);
     bounds.push([lat, lon]);
   }
 
   if (bounds.length)
-    map.fitBounds(L.latLngBounds(bounds), { padding: [10, 10] });
+    map.fitBounds(L.latLngBounds(bounds), { padding: [10, 10], maxZoom: 5 });
 
   // Add minimap using the same plugin bundled by the R leaflet package.
   if (!window.L?.Control?.MiniMap) {
@@ -552,6 +551,12 @@ viewof hotspot_year = Inputs.select(
   hotspot_years_list.map(String),
   { value: String(default_year), label: "Year" }
 )
+```
+
+```{=html}
+<p style="font-size:0.82em;color:#666;margin-bottom:4px;">
+  Select which variables appear in the pixel-level exposure time series below the map.
+</p>
 ```
 
 ```{ojs}
