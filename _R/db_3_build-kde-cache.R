@@ -190,7 +190,6 @@ build_kde_figure <- function(sp_name, allcell_sp, ts_data) {
     geom_hline(yintercept = hist_tmax, linetype = "dashed", colour = "black", linewidth = 0.6) +
     annotate("text", x = -Inf, y = hist_tmax, label = "99% Thermal Max during 1941-2022",
              hjust = -0.05, vjust = -0.4, size = 2.8, colour = "grey20") +
-    geom_hline(yintercept = hist_tmed, linetype = "dashed", colour = "black", linewidth = 0.6) +
     geom_hline(yintercept = hist_tmin, linetype = "dashed", colour = "black", linewidth = 0.6) +
     annotate("text", x = -Inf, y = hist_tmin, label = "1% Thermal Min during 1941-2022",
              hjust = -0.05, vjust = 1.4, size = 2.8, colour = "grey20") +
@@ -428,7 +427,7 @@ for (sp_name in all_species) {
         ts_data    = ts_cache[[sp_name]]
       )
       if (!is.null(fig)) {
-        ggplot2::ggsave(out_path, plot = fig, width = 12, height = 8, dpi = 240)
+        ggplot2::ggsave(out_path, plot = fig, width = 3, height = 2, dpi = 240)
         n_rendered <- n_rendered + 1L
       }
     }, error = function(e) {

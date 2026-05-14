@@ -49,6 +49,18 @@ format:
   flex: 0 0 auto !important;
 }
 
+/* ---- Species Explorer: constrain polar+map row to ~40% of natural height ----
+   The dashboard runs in scrolling layout so fr row-height units have no effect;
+   each row sizes to its content.  Cap the polar+map row cards directly instead. */
+#species-explorer .sidebar-content > .bslib-grid > .bslib-grid > .bslib-grid:nth-child(2) .bslib-card {
+  max-height: 200px !important;
+}
+
+/* Tighten spacing between rows in Species Explorer */
+#species-explorer .sidebar-content > .bslib-grid > .bslib-grid {
+  row-gap: 4px !important;
+}
+
 /* ---- Hotspot Explorer: break bslib fill chain so explicit row heights work */
 #hotspot-explorer .bslib-sidebar-layout,
 #hotspot-explorer .main,
@@ -452,7 +464,7 @@ viewof selected_species = {
 }
 ```
 
-### Row {height="35%"}
+### Row {height="14%"}
 
 #### Polar {width="40%"}
 
@@ -460,16 +472,51 @@ viewof selected_species = {
 //| echo: false
 {
   const sp  = encodeURIComponent(selected_species);
+
+  // Outer wrapper holds the image + expand button
+  const outer = DOM.element("div");
+  outer.style.cssText = "position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;";
+
   const img = DOM.element("img");
   img.src = `data/species_figs/${sp}_polar.png`;
-  img.style.cssText = "max-width:100%;max-height:100%;object-fit:contain;";
+  img.style.cssText = "max-width:100%;max-height:160px;object-fit:contain;display:block;";
   img.onerror = () => {
     const msg = DOM.element("p");
     msg.textContent = "Polar figure not yet built \u2014 run the build step.";
     msg.style.cssText = "color:#999;font-size:12px;text-align:center;margin-top:2em;";
     img.replaceWith(msg);
   };
-  return img;
+  outer.appendChild(img);
+
+  // Expand button — opens a modal lightbox with the full-size image
+  const btn = DOM.element("button");
+  btn.title = "Expand";
+  btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`;
+  btn.style.cssText = "position:absolute;top:4px;right:4px;padding:3px 5px;background:rgba(255,255,255,0.88);border:1px solid #bbb;border-radius:4px;cursor:pointer;line-height:1;color:#555;z-index:10;";
+  btn.addEventListener("click", () => {
+    const overlay = DOM.element("div");
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;";
+    const full = DOM.element("img");
+    full.src = img.src;
+    full.style.cssText = "max-width:90vw;max-height:90vh;object-fit:contain;border-radius:6px;box-shadow:0 6px 32px rgba(0,0,0,0.6);";
+    overlay.appendChild(full);
+    const close = () => { if (document.body.contains(overlay)) document.body.removeChild(overlay); };
+    overlay.addEventListener("click", close);
+    document.addEventListener("keydown", function esc(e) {
+      if (e.key === "Escape") { close(); document.removeEventListener("keydown", esc); }
+    });
+    document.body.appendChild(overlay);
+  });
+  outer.appendChild(btn);
+
+  yield outer;
+  // After two rAF ticks, measure the card and update the image max-height.
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const _card = outer.closest('.bslib-card');
+  const _hdr  = _card?.querySelector('.card-header');
+  const _availH = (_card?.getBoundingClientRect().height ?? 0)
+                - (_hdr?.getBoundingClientRect().height  ?? 0);
+  if (_availH > 20) img.style.maxHeight = _availH + 'px';
 }
 ```
 
@@ -478,16 +525,24 @@ viewof selected_species = {
 ```{ojs}
 //| echo: false
 species_range_map = {
-  // Outer wrapper holds the fixed pixel height so that the CSS rule
-  // ".leaflet-container { height: 100% }" resolves to 280px, not 0
-  // (the OJS .observablehq parent has no explicit height).
+  // Outer wrapper: initial height is a fallback; a ResizeObserver resizes it
+  // to fill the card body after yield (.observablehq parent has no height).
   const outer = DOM.element("div");
   outer.style.cssText = "width:100%;height:280px;";
   const container = DOM.element("div");
   container.style.cssText = "width:100%;height:100%;";
   outer.appendChild(container);
-  // Yield first so the wrapper is in the DOM before Leaflet initialises
   yield outer;
+
+  // Size outer to fill the card body (wait two rAF ticks for layout to settle)
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const _card = outer.closest('.bslib-card');
+  const _hdr  = _card?.querySelector('.card-header');
+  const _availH = (_card?.getBoundingClientRect().height ?? 0)
+                - (_hdr?.getBoundingClientRect().height  ?? 0);
+  if (_availH > 50) outer.style.height = _availH + 'px';
+
+  let map = null;
 
   // IUCN terms of use prohibit redistribution of reptile and amphibian range data.
   const RESTRICTED_ORDERS = new Set([
@@ -522,8 +577,8 @@ species_range_map = {
     return;
   }
 
-  const map = L.map(container, { preferCanvas: true });
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+  map = L.map(container, { preferCanvas: true });
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
     attribution: "\u00a9 OpenStreetMap, \u00a9 CARTO",
     maxZoom: 19
   }).addTo(map);
@@ -557,6 +612,9 @@ species_range_map = {
   if (bounds.length)
     map.fitBounds(L.latLngBounds(bounds), { padding: [10, 10], maxZoom: 5 });
 
+  // Sync Leaflet to the resized container (height was set after map init)
+  map.invalidateSize();
+
   // Add minimap using the same plugin bundled by the R leaflet package.
   if (!window.L?.Control?.MiniMap) {
     if (!document.querySelector('link[href*="Control.MiniMap"]')) {
@@ -573,7 +631,7 @@ species_range_map = {
     });
   }
   new L.Control.MiniMap(
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { maxZoom: 19 }),
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { maxZoom: 19 }),
     { toggleDisplay: true, position: "topright", minimized: false }
   ).addTo(map);
 
@@ -591,16 +649,44 @@ ojs_define(has_species_figs = file.exists("data/species_figs"))
 //| echo: false
 {
   const sp  = encodeURIComponent(selected_species);
+
+  const wrapper = DOM.element("div");
+  wrapper.style.cssText = "display:flex;flex-direction:column;width:100%;";
+
   const img = DOM.element("img");
   img.src = `data/species_figs/${sp}_kde.png`;
-  img.style.cssText = "max-width:100%;max-height:100%;object-fit:contain;";
+  img.style.cssText = "max-width:75%;height:auto;display:block;margin:0 auto;";
   img.onerror = () => {
     const msg = DOM.element("p");
     msg.textContent = "KDE figure not yet built \u2014 run the build step.";
     msg.style.cssText = "color:#999;font-size:12px;text-align:center;margin-top:2em;";
     img.replaceWith(msg);
   };
-  return img;
+  wrapper.appendChild(img);
+
+  const cap = DOM.element("div");
+  cap.style.cssText = "flex:0 0 auto;font-size:0.78rem;line-height:1.55;color:#444;padding:0.6rem 1rem 0.4rem;border-top:1px solid #dee2e6;margin-top:4px;";
+  cap.innerHTML = `<strong>Figure.</strong>
+Historical annual maximum temperature exposure across the geographic range of the selected species, 1941\u20132025.
+The composite comprises three linked panels.
+<strong>Top panel \u2014 Multi-variable annual exposure time series.</strong>
+Stacked bars depict the annual percentage of the species\u2019 geographic range in which at least one climate extreme threshold was exceeded for each of eight ERA5-derived climate variables: annual- and seasonal-scale (warmest/coldest 3-month) extremes at the upper and lower tails of near-surface air temperature and total precipitation.
+The grey shaded area shows the cumulative percentage of range grid cells that have experienced at least one threshold exceedance for any variable in any preceding year.
+<strong>Main panel (lower left) \u2014 Annual maximum temperature \u00d7 time heatmap.</strong>
+Year (x-axis; 1941\u20132025) is plotted against annual maximum near-surface air temperature (\u00b0C; y-axis).
+Thick black lines bound the annual inter-cell range (minimum and maximum) of annual maximum temperature across all ERA5 grid cells intersecting the IUCN range polygon.
+The fill colour of each tile encodes the percentile of that temperature value under the historical empirical cumulative distribution function (eCDF), estimated from temperatures pooled across all range cells and years of the historical baseline period (1941\u20132022), rendered using a diverging blue\u2013white\u2013red colour scale anchored at the species-level thermal limits (dashed horizontal lines; see below).
+Translucent grey lines trace year-to-year temperature trajectories for a random subsample of \u2264300 individual range cells; trajectories are coloured red in years when a cell\u2019s annual maximum temperature exceeded the upper thermal exposure threshold (<span style="white-space:nowrap"><em>T</em><sub>max</sub></span>), and blue when it fell below the lower threshold (<span style="white-space:nowrap"><em>T</em><sub>min</sub></span>).
+<span style="white-space:nowrap"><em>T</em><sub>max</sub></span> is defined as the 99th percentile of per-cell 99th-percentile annual maximum temperatures across all range cells during 1941\u20132022; <span style="white-space:nowrap"><em>T</em><sub>min</sub></span> is defined as the 1st percentile of per-cell 1st-percentile temperatures over the same period.
+Dashed horizontal reference lines mark <span style="white-space:nowrap"><em>T</em><sub>max</sub></span> and <span style="white-space:nowrap"><em>T</em><sub>min</sub></span>.
+<strong>Density panel (lower right) \u2014 Kernel density estimates (KDE).</strong>
+Normalized KDEs (bandwidth multiplier = 0.5 relative to Silverman\u2019s rule of thumb) of annual maximum temperature pooled across all range cells are shown for the historical baseline period (1941\u20132022; grey fill) and the most recent data year (purple fill).
+The y-axis is shared with the heatmap panel.
+Vertical dashed lines mark <span style="white-space:nowrap"><em>T</em><sub>max</sub></span> and <span style="white-space:nowrap"><em>T</em><sub>min</sub></span>.
+Horizontal arrows and \u0394\u00b0C annotations indicate the shift in the 1st and 99th percentiles of the temperature distribution from the historical baseline to the most recent year, quantifying tail-specific thermal displacement.`;
+  wrapper.appendChild(cap);
+
+  return wrapper;
 }
 ```
 
