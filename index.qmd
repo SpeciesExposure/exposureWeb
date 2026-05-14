@@ -37,23 +37,27 @@ format:
 .bslib-card .card-body .html-widget,
 .bslib-card .card-body .html-widget-output,
 .bslib-card .card-body .leaflet,
-.bslib-card .card-body .leaflet-container {
+.bslib-card .card-body .leaflet-container:not(.leaflet-control-minimap),
+.leaflet:not(.leaflet-control-minimap),
+.html-widget.leaflet-container:not(.leaflet-control-minimap) {
   width: 100% !important;
   height: 100% !important;
+  grid-column: 1 / -1 !important;
+}
+/* Prevent bslib fill chain from collapsing the minimap */
+.leaflet-control-minimap {
+  flex: 0 0 auto !important;
 }
 
-/* ---- Hotspot Explorer: allow map row to reach its explicit 700px height ----
-   The bslib fill chain makes every element flex-grow:1 into the viewport
-   height.  Override only in the hotspot tab by setting flex-grow:0 so the
-   chain auto-sizes from content instead, then force the inner grid rows. */
+/* ---- Hotspot Explorer: break bslib fill chain so explicit row heights work */
 #hotspot-explorer .bslib-sidebar-layout,
 #hotspot-explorer .main,
 #hotspot-explorer .main > .bslib-grid {
   flex: 0 0 auto !important;
   height: auto !important;
 }
-.bslib-grid[data-height="700px"] {
-  grid-template-rows: 700px 320px !important;
+.bslib-grid[data-height="525px"] {
+  grid-template-rows: 525px 240px auto !important;
   height: auto !important;
 }
 </style>
@@ -233,6 +237,24 @@ precipitation at annual and seasonal timescales:</p>
   <li><a href="https://www.iucnredlist.org/" target="_blank">IUCN Red List</a> — species range polygons and conservation status</li>
 </ul>
 
+<hr style="margin: 1.2rem 0;">
+
+<h4>Run locally with custom filtering</h4>
+<p>
+  For more flexible filtering and custom data exploration, you can download and
+  run the full interactive Shiny app from
+  <a href="https://github.com/SpeciesExposure/exposureApp" target="_blank">github.com/SpeciesExposure/exposureApp</a>.
+  Install directly from the repository in R:
+</p>
+<pre style="background:#f4f4f4; border-left:4px solid #2c7bb6; border-radius:4px;
+            padding:0.8rem 1rem; font-size:0.85rem; overflow-x:auto;"><code>install.packages(
+  "https://github.com/SpeciesExposure/exposureApp/archive/refs/heads/main.tar.gz",
+  repos = NULL,
+  type = "source"
+)
+
+exposureApp::exposureApp()</code></pre>
+
 <p style="margin-top:1.5rem; font-size:0.85rem; color:#777;">
   Source code:
   <a href="https://github.com/cmerow/2025_Exposure" target="_blank">github.com/cmerow/2025_Exposure</a>
@@ -324,6 +346,14 @@ range has been exposed to extreme climate events through time.
 # Sidebar controls are standard Quarto/HTML inputs connected to
 # ojs (Observable JS) reactive blocks below via `ojs_define()`.
 
+# Colour map: display label → hex, matching VAR_COLORS
+var_label_colors_r <- setNames(
+  vapply(unname(var_choices), function(code) {
+    col <- VAR_COLORS[[code]]; if (is.na(col)) "#cccccc" else col
+  }, character(1)),
+  names(var_choices)
+)
+
 # Pass R vectors to the OJS layer so controls can be populated dynamically
 ojs_define(
   species_list       = species_avail,
@@ -331,7 +361,8 @@ ojs_define(
   var_names          = names(var_choices),
   years_list         = years_avail,
   hotspot_years_list = hotspot_years,
-  default_year       = default_year
+  default_year       = default_year,
+  var_label_colors   = as.list(var_label_colors_r)
 )
 ```
 
@@ -471,6 +502,26 @@ species_range_map = {
   if (bounds.length)
     map.fitBounds(L.latLngBounds(bounds), { padding: [10, 10] });
 
+  // Add minimap using the same plugin bundled by the R leaflet package.
+  if (!window.L?.Control?.MiniMap) {
+    if (!document.querySelector('link[href*="Control.MiniMap"]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'site_libs/leaflet-minimap-3.3.1/Control.MiniMap.min.css';
+      document.head.appendChild(link);
+    }
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'site_libs/leaflet-minimap-3.3.1/Control.MiniMap.min.js';
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+  new L.Control.MiniMap(
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { maxZoom: 19 }),
+    { toggleDisplay: true, position: "topright", minimized: false }
+  ).addTo(map);
+
   invalidation.then(() => map.remove());
 }
 ```
@@ -530,7 +581,7 @@ viewof hotspot_threatened_only = Inputs.toggle({
 })
 ```
 
-## Row {height="700px"}
+## Row {height="525px"}
 
 ### Map
 
@@ -558,9 +609,15 @@ legend_breaks <- c(1, 2, 5, 10, 20, 50, 100, max(global_vals))
 legend_breaks <- legend_breaks[legend_breaks <= max(global_vals)]
 
 # Start map
-lmap <- leaflet::leaflet(height = "700px", options = leaflet::leafletOptions(preferCanvas = TRUE)) |>
+lmap <- leaflet::leaflet(height = "525px", options = leaflet::leafletOptions(preferCanvas = TRUE)) |>
   leaflet::addProviderTiles(leaflet::providers$CartoDB.DarkMatter) |>
-  leaflet::setView(lng = 0, lat = 15, zoom = 2)
+  leaflet::setView(lng = 0, lat = 15, zoom = 2) |>
+  leaflet::addMiniMap(
+    tiles         = leaflet::providers$CartoDB.DarkMatter,
+    toggleDisplay = TRUE,
+    position      = "topright",
+    minimized     = FALSE
+  )
 
 # Add one raster overlay per hotspot year (2023–present); only default_year starts visible
 for (yr in hotspot_years) {
@@ -593,6 +650,12 @@ lmap <- lmap |>
       var map = this;
       map.invalidateSize(false);
       setTimeout(function() { map.invalidateSize(false); }, 300);
+      // Remove bslib fill classes from minimap so its inline width/height styles
+      // are not overridden and the toggle button works correctly.
+      setTimeout(function() {
+        var mm = el.querySelector('.leaflet-control-minimap');
+        if (mm) { mm.classList.remove('html-fill-item', 'html-fill-container'); }
+      }, 100);
       // Listen for year changes from OJS and toggle raster layer opacity.
       // addRasterImage registers layers via layerManager (not layer.options),
       // so we must use map.layerManager.getLayer(id, category) to access them.
@@ -710,9 +773,93 @@ clicked_cell = Generators.observe(notify => {
 }
 ```
 
-### {height="320px"}
+### Cell trend over time {height="240px"}
 
-#### Species in selected cell {height="100%"}
+```{r cell-trend-data, include=FALSE}
+# Build per-variable cell trend (species count per cell × year × variable).
+# Computed directly from exposure_df so we don't need to re-run prepare-data.
+cell_trend_by_var <- exposure_df |>
+  dplyr::filter(!is.na(cell), cell >= 1, cell <= terra::ncell(tpl)) |>
+  dplyr::mutate(var = vapply(as.character(var), var_label, character(1))) |>
+  dplyr::distinct(spName, cell, year, var) |>
+  dplyr::count(cell, year, var, name = "n_species_exposed")
+ojs_define(cell_trend_data = cell_trend_by_var)
+```
+
+```{ojs}
+//| output: false
+cell_trend_filtered = {
+  if (clicked_cell === "") return [];
+  const raw = transpose(cell_trend_data)
+    .filter(d => d.cell === Number(clicked_cell))
+    .filter(d => hotspot_vars.includes(d.var));
+  // Build lookup: "year|var" -> n_species_exposed
+  const lookup = new Map(raw.map(d => [`${d.year}|${d.var}`, d.n_species_exposed]));
+  // Cross-join recent years (>2010) × selected vars, filling missing with 0
+  const allYears = years_list.map(Number).filter(y => y > 2010);
+  const rows = [];
+  for (const year of allYears) {
+    for (const v of hotspot_vars) {
+      rows.push({ year, var: v, n_species_exposed: lookup.get(`${year}|${v}`) ?? 0 });
+    }
+  }
+  return rows;
+}
+```
+
+```{ojs}
+//| echo: false
+{
+  if (clicked_cell === "" || cell_trend_filtered.every(d => d.n_species_exposed === 0))
+    return html`<p style="color:#888;font-style:italic">Click any location on the map to see which species are exposed there.</p>`;
+  const c = Number(clicked_cell);
+  const col = (c - 1) % rast_ncols + 1;
+  const row = Math.floor((c - 1) / rast_ncols) + 1;
+  const lonRaw = rast_xmin + (col - 0.5) * rast_xres;
+  const latRaw = rast_ymax - (row - 0.5) * rast_yres;
+  const lon = Math.abs(lonRaw).toFixed(2) + "\u00b0" + (lonRaw >= 0 ? "E" : "W");
+  const lat = Math.abs(latRaw).toFixed(2) + "\u00b0" + (latRaw >= 0 ? "N" : "S");
+  const colorDomain = hotspot_vars;
+  const colorRange  = hotspot_vars.map(v => var_label_colors[v] ?? "#cccccc");
+  const legendWidth = 210;
+  const containerW  = document.querySelectorAll('#hotspot-explorer .bslib-card')[1]
+                        ?.querySelector('.card-body')?.clientWidth ?? 800;
+  const chartWidth  = Math.max(150, containerW - legendWidth - 26);
+  const chart = Plot.plot({
+        width: chartWidth,
+        height: 175,
+        marginTop: 8,
+        marginBottom: 40,
+        style: { fontSize: "12px" },
+        fx: { label: "Year", tickFormat: d => d },
+        x:  { axis: null },
+        y:  { label: "↑ Species", grid: true },
+        color: { domain: colorDomain, range: colorRange, legend: false },
+        marks: [
+          Plot.barY(cell_trend_filtered, {
+            fx: d => String(d.year),
+            x: "var",
+            y: "n_species_exposed",
+            fill: "var",
+            tip: true
+          }),
+          Plot.ruleY([0])
+        ]
+      });
+  const legendEl = html`<div style="font-size:11px;line-height:1.3;padding-top:8px">${
+    colorDomain.map((v, i) => html`<div style="display:flex;align-items:center;gap:5px;margin-bottom:5px">
+      <span style="display:inline-block;width:11px;height:11px;flex-shrink:0;background:${colorRange[i]}"></span>
+      <span>${v}</span>
+    </div>`)
+  }</div>`;
+  return html`<div style="display:flex;gap:8px;align-items:flex-start;overflow:hidden">
+    <div style="flex-shrink:0">${chart}</div>
+    <div style="flex-shrink:0;width:${legendWidth}px">${legendEl}</div>
+  </div>`;
+}
+```
+
+### Species in selected cell
 
 ```{ojs}
 //| output: false
@@ -787,74 +934,4 @@ clicked_cell === ""
       { width: "100%", sort: "% range exposed", reverse: true }
     )}
     </div>`
-```
-
-#### Cell trend over time {height="100%"}
-
-```{r cell-trend-data, include=FALSE}
-# Build per-variable cell trend (species count per cell × year × variable).
-# Computed directly from exposure_df so we don't need to re-run prepare-data.
-cell_trend_by_var <- exposure_df |>
-  dplyr::filter(!is.na(cell), cell >= 1, cell <= terra::ncell(tpl)) |>
-  dplyr::mutate(var = vapply(as.character(var), var_label, character(1))) |>
-  dplyr::distinct(spName, cell, year, var) |>
-  dplyr::count(cell, year, var, name = "n_species_exposed")
-ojs_define(cell_trend_data = cell_trend_by_var)
-```
-
-```{ojs}
-//| output: false
-cell_trend_filtered = {
-  if (clicked_cell === "") return [];
-  const raw = transpose(cell_trend_data)
-    .filter(d => d.cell === Number(clicked_cell))
-    .filter(d => hotspot_vars.includes(d.var));
-  // Build lookup: "year|var" -> n_species_exposed
-  const lookup = new Map(raw.map(d => [`${d.year}|${d.var}`, d.n_species_exposed]));
-  // Cross-join recent years (>2010) × selected vars, filling missing with 0
-  const allYears = years_list.map(Number).filter(y => y > 2010);
-  const rows = [];
-  for (const year of allYears) {
-    for (const v of hotspot_vars) {
-      rows.push({ year, var: v, n_species_exposed: lookup.get(`${year}|${v}`) ?? 0 });
-    }
-  }
-  return rows;
-}
-```
-
-```{ojs}
-//| echo: false
-{
-  if (clicked_cell === "" || cell_trend_filtered.every(d => d.n_species_exposed === 0))
-    return html`<p style="color:#888;font-style:italic">Click any location on the map to see which species are exposed there.</p>`;
-  const c = Number(clicked_cell);
-  const col = (c - 1) % rast_ncols + 1;
-  const row = Math.floor((c - 1) / rast_ncols) + 1;
-  const lonRaw = rast_xmin + (col - 0.5) * rast_xres;
-  const latRaw = rast_ymax - (row - 0.5) * rast_yres;
-  const lon = Math.abs(lonRaw).toFixed(2) + "\u00b0" + (lonRaw >= 0 ? "E" : "W");
-  const lat = Math.abs(latRaw).toFixed(2) + "\u00b0" + (latRaw >= 0 ? "N" : "S");
-  return Plot.plot({
-        title: `Number of species exposed per variable (${click_latlon})`,
-        width,
-        height: 260,
-        marginBottom: 50,
-        style: { fontSize: "14px" },
-        fx: { label: "Year", tickFormat: d => d },
-        x:  { axis: null },
-        y:  { label: "Species exposed", grid: true },
-        color: { legend: true },
-        marks: [
-          Plot.barY(cell_trend_filtered, {
-            fx: d => String(d.year),
-            x: "var",
-            y: "n_species_exposed",
-            fill: "var",
-            tip: true
-          }),
-          Plot.ruleY([0])
-        ]
-      });
-}
 ```
