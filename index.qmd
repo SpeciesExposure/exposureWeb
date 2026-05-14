@@ -369,11 +369,64 @@ ojs_define(
 
 ```{ojs}
 //| echo: false
-// Species selector
-viewof selected_species = Inputs.select(
-  species_list,
-  { value: species_list[0], label: "Species" }
-)
+viewof selected_species = {
+  // Load Tom Select CSS once (can't use require() for CSS)
+  if (!document.querySelector('link[href*="tom-select"]')) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/css/tom-select.bootstrap5.min.css';
+    document.head.appendChild(link);
+  }
+  // OJS require() wraps CommonJS exports as { default: ... }
+  const TomSelectModule = await require("https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/js/tom-select.complete.min.js");
+  const TomSelect = TomSelectModule.default ?? TomSelectModule;
+
+  // Map species → order using metadata; fall back to "Unknown"
+  const metaRows = transpose(species_meta_data);
+  const orderMap = new Map(metaRows.map(r => [r.Species, r.Order ?? "Unknown"]));
+
+  // Group species (from authoritative list) by order
+  const byOrder = new Map();
+  for (const sp of species_list) {
+    const order = orderMap.get(sp) ?? "Unknown";
+    if (!byOrder.has(order)) byOrder.set(order, []);
+    byOrder.get(order).push(sp);
+  }
+
+  // Build native <select> with <optgroup> per order
+  const sel = document.createElement('select');
+  for (const order of [...byOrder.keys()].sort()) {
+    const grp = document.createElement('optgroup');
+    grp.label = order;
+    for (const sp of byOrder.get(order).sort((a, b) => a.localeCompare(b))) {
+      const opt = document.createElement('option');
+      opt.value = sp;
+      opt.textContent = sp.replace(/_/g, ' ');
+      grp.appendChild(opt);
+    }
+    sel.appendChild(grp);
+  }
+  sel.value = species_list[0];
+
+  // Wrapper that OJS viewof reads .value from and listens to for input events
+  const wrapper = document.createElement('div');
+  Object.defineProperty(wrapper, 'value', { get: () => sel.value });
+  const lbl = document.createElement('label');
+  lbl.textContent = 'Species';
+  lbl.style.cssText = 'display:block;font-size:0.75rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:4px;color:#495057;';
+  wrapper.appendChild(lbl);
+  wrapper.appendChild(sel);
+  yield wrapper;
+
+  const ts = new TomSelect(sel, {
+    maxOptions: 150,
+    placeholder: 'Type to search…',
+    dropdownParent: 'body',
+    onChange: () => wrapper.dispatchEvent(new Event('input', { bubbles: true }))
+  });
+
+  invalidation.then(() => ts.destroy());
+}
 ```
 
 ---
