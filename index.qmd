@@ -246,6 +246,7 @@ precipitation at annual and seasonal timescales:</p>
   <a href="https://github.com/SpeciesExposure/exposureApp" target="_blank">github.com/SpeciesExposure/exposureApp</a>.
   Install directly from the repository in R:
 </p>
+<img src="img/shinyApp.png" alt="Screenshot of the Shiny app showing a species timeseries and map" style="max-width:20%; border:1px solid #ddd; border-radius:4px; margin:1rem 0;">
 <pre style="background:#f4f4f4; border-left:4px solid #2c7bb6; border-radius:4px;
             padding:0.8rem 1rem; font-size:0.85rem; overflow-x:auto;"><code>install.packages(
   "https://github.com/SpeciesExposure/exposureApp/archive/refs/heads/main.tar.gz",
@@ -339,7 +340,7 @@ htmltools::tagList(
 
 **Species Explorer**
 
-Select a species and a subset of climate variables to see how much of its
+Select a species to see how much of its
 range has been exposed to extreme climate events through time.
 
 ```{r species-sidebar, echo=FALSE}
@@ -372,18 +373,6 @@ ojs_define(
 viewof selected_species = Inputs.select(
   species_list,
   { value: species_list[0], label: "Species" }
-)
-```
-
-```{ojs}
-//| echo: false
-// Climate variable checkboxes
-viewof selected_vars = Inputs.checkbox(
-  var_names,
-  {
-    value: var_names,   // all selected by default
-    label: "Climate variables"
-  }
 )
 ```
 
