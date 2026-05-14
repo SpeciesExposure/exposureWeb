@@ -20,7 +20,7 @@ if (!file.exists("_quarto.yml")) {
 # Data location: all input and output files live in ../../data/ (repo root data/).
 # Set DATA_DIR / CACHE_DIR environment variables to override.
 # ---------------------------------------------------------------------------
-Sys.setenv(DATA_DIR  = Sys.getenv("DATA_DIR",  "../../data"))
+Sys.setenv(DATA_DIR  = Sys.getenv("DATA_DIR",  "data"))
 Sys.setenv(CACHE_DIR = Sys.getenv("CACHE_DIR", "data"))
 Sys.setenv(DEV_N_SPECIES = Sys.getenv("DEV_N_SPECIES", 100))
 

@@ -436,6 +436,20 @@ species_range_map = {
   // Yield first so the wrapper is in the DOM before Leaflet initialises
   yield outer;
 
+  // IUCN terms of use prohibit redistribution of reptile and amphibian range data.
+  const RESTRICTED_ORDERS = new Set([
+    "SQUAMATA","TESTUDINES","CROCODYLIA","RHYNCHOCEPHALIA", // reptiles
+    "ANURA","CAUDATA","GYMNOPHIONA"                         // amphibians
+  ]);
+  const spMeta = transpose(species_meta_data).filter(row => row.Species === selected_species)[0];
+  if (RESTRICTED_ORDERS.has(spMeta?.Order)) {
+    const msg = DOM.element("p");
+    msg.innerHTML = `Sorry, the IUCN data use agreement does not permit showing the range of this species &mdash; see <a href="https://www.iucnredlist.org/terms/terms-of-use" target="_blank" rel="noopener">IUCN terms of use (§ No Reposting or Redistribution)</a>.`;
+    msg.style.cssText = "color:#666;font-size:13px;text-align:center;margin-top:3em;padding:0 1.5em;line-height:1.5;";
+    container.appendChild(msg);
+    return;
+  }
+
   // Use the Leaflet already loaded by the R leaflet package (site_libs/leaflet-1.3.1).
   // Loading a separate CDN copy would overwrite window.L and break the Hotspot
   // Explorer's addProviderTiles call.
