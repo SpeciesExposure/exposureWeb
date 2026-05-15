@@ -496,10 +496,14 @@ viewof selected_species = {
   btn.addEventListener("click", () => {
     const overlay = DOM.element("div");
     overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.78);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out;";
+    const panel = DOM.element("div");
+    panel.style.cssText = "background:#fff;border-radius:8px;padding:16px;box-shadow:0 6px 32px rgba(0,0,0,0.6);cursor:default;";
+    panel.addEventListener("click", e => e.stopPropagation());
     const full = DOM.element("img");
     full.src = img.src;
-    full.style.cssText = "max-width:90vw;max-height:90vh;object-fit:contain;border-radius:6px;box-shadow:0 6px 32px rgba(0,0,0,0.6);";
-    overlay.appendChild(full);
+    full.style.cssText = "max-width:calc(90vw - 32px);max-height:calc(90vh - 32px);object-fit:contain;display:block;";
+    panel.appendChild(full);
+    overlay.appendChild(panel);
     const close = () => { if (document.body.contains(overlay)) document.body.removeChild(overlay); };
     overlay.addEventListener("click", close);
     document.addEventListener("keydown", function esc(e) {

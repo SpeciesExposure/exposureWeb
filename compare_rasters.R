@@ -1,0 +1,16 @@
+library(terra)
+rmax <- terra::rast("data/rast/temp__3__max.tif")
+rmin <- terra::rast("data/rast/temp__3__min.tif")
+cat("max file size:", file.size("data/rast/temp__3__max.tif"), "\n")
+cat("min file size:", file.size("data/rast/temp__3__min.tif"), "\n")
+v_max <- values(rmax[[41]], mat=FALSE)
+v_min <- values(rmin[[41]], mat=FALSE)
+cat("Layer 41 - max raster: range", round(range(v_max, na.rm=TRUE) - 273.15, 2), "| mean:", round(mean(v_max, na.rm=TRUE) - 273.15, 2), "\n")
+cat("Layer 41 - min raster: range", round(range(v_min, na.rm=TRUE) - 273.15, 2), "| mean:", round(mean(v_min, na.rm=TRUE) - 273.15, 2), "\n")
+cat("Are they identical?", all(v_max == v_min, na.rm=TRUE), "\n")
+allcell <- readRDS("data/AllCellExposureSpXVar.rds")
+sp_cells <- unique(allcell$cell[allcell$spName == "Hynobius_retardatus"])
+cat("\nFor Hynobius range cells (n=", length(sp_cells), "):\n")
+vm_sp <- terra::extract(rmax[[41]], sp_cells)[,2]
+vi_sp <- terra::extract(rmin[[41]], sp_cells)[,2]
+cat("max layer 41: range", round(range(vm_sp,cat("max layer73.15, 2cat("max layer 41: range", round(range(vm_sp273.15cat("max layer 41: range", round(range(vm_nd(range(vi_sp, na.rm=TRUE)-273.15, 2), "| mean:", round(mean(vi_sp, na.rm=TRUE)-273.15, 2), "\n")

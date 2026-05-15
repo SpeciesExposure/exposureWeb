@@ -427,7 +427,7 @@ for (sp_name in all_species) {
         ts_data    = ts_cache[[sp_name]]
       )
       if (!is.null(fig)) {
-        ggplot2::ggsave(out_path, plot = fig, width = 3, height = 2, dpi = 240)
+        ggplot2::ggsave(out_path, plot = fig, width = 12, height = 8)
         n_rendered <- n_rendered + 1L
       }
     }, error = function(e) {
